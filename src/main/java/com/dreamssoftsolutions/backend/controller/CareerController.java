@@ -1,13 +1,10 @@
 package com.dreamssoftsolutions.backend.controller;
 
-import com.dreamssoftsolutions.backend.model.CareerApplication;
-import com.dreamssoftsolutions.backend.service.CareerService;
+import com.dreamssoftsolutions.backend.service.CareerEmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/career")
@@ -15,7 +12,7 @@ import java.util.List;
 public class CareerController {
 
     @Autowired
-    private CareerService careerService;
+    private CareerEmailService careerEmailService;
 
     @PostMapping("/apply")
     public ResponseEntity<String> submitCareerApplication(
@@ -23,60 +20,29 @@ public class CareerController {
             @RequestParam("email") String email,
             @RequestParam("position") String position,
             @RequestParam("resume") MultipartFile resume) {
-        
+
         try {
-            // Validate inputs
-            if (fullName == null || fullName.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Full name is required");
+            if (fullName == null || email == null || position == null || resume.isEmpty()) {
+                return ResponseEntity.badRequest().body("All fields required");
             }
-            
-            if (email == null || email.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Email is required");
-            }
-            
-            if (position == null || position.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Position is required");
-            }
-            
-            if (resume == null || resume.isEmpty()) {
-                return ResponseEntity.badRequest().body("Resume file is required");
-            }
-            
-            // Validate file type
+
             String fileName = resume.getOriginalFilename();
-            if (fileName == null || (!fileName.endsWith(".pdf") && 
-                !fileName.endsWith(".doc") && !fileName.endsWith(".docx"))) {
-                return ResponseEntity.badRequest()
-                    .body("Only PDF, DOC, and DOCX files are allowed");
+            if (!fileName.endsWith(".pdf") && !fileName.endsWith(".doc") && !fileName.endsWith(".docx")) {
+                return ResponseEntity.badRequest().body("Only PDF, DOC, DOCX allowed");
             }
-            
-            // Validate file size (max 5MB)
+
             if (resume.getSize() > 5 * 1024 * 1024) {
-                return ResponseEntity.badRequest()
-                    .body("File size must be less than 5MB");
+                return ResponseEntity.badRequest().body("File must be under 5MB");
             }
-            
-            // Process the application
-            careerService.processCareerApplication(fullName, email, position, resume);
-            
-            return ResponseEntity.ok("Thank you! Your application has been submitted successfully.");
-            
+
+            careerEmailService.sendCareerApplicationEmail(
+                fullName, email, position, fileName, resume.getBytes()
+            );
+
+            return ResponseEntity.ok("Application submitted successfully!");
+
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500)
-                .body("Error processing your application. Please try again.");
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
-    }
-
-    @GetMapping
-    public ResponseEntity<List<CareerApplication>> getAllApplications() {
-        return ResponseEntity.ok(careerService.getAllApplications());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<CareerApplication> getApplicationById(@PathVariable Long id) {
-        return careerService.getApplicationById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -1,12 +1,11 @@
 package com.dreamssoftsolutions.backend.controller;
 
-import com.dreamssoftsolutions.backend.model.ContactMessage;
-import com.dreamssoftsolutions.backend.service.ContactService;
+import com.dreamssoftsolutions.backend.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/contact")
@@ -14,27 +13,24 @@ import java.util.List;
 public class ContactController {
 
     @Autowired
-    private ContactService contactService;
+    private EmailService emailService;
 
     @PostMapping
-    public ResponseEntity<String> submitContactForm(@RequestBody ContactMessage contactMessage) {
+    public ResponseEntity<String> submitContactForm(@RequestBody Map<String, String> formData) {
         try {
-            contactService.saveContactMessage(contactMessage);
+            String name = formData.get("name");
+            String email = formData.get("email");
+            String message = formData.get("message");
+
+            if (name == null || email == null || message == null) {
+                return ResponseEntity.badRequest().body("All fields required");
+            }
+
+            emailService.sendContactNotification(name, email, message);
             return ResponseEntity.ok("Message received successfully!");
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
-    }
-
-    @GetMapping
-    public ResponseEntity<List<ContactMessage>> getAllMessages() {
-        return ResponseEntity.ok(contactService.getAllMessages());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<ContactMessage> getMessageById(@PathVariable Long id) {
-        return contactService.getMessageById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
     }
 }
